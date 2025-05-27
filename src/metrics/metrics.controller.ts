@@ -25,14 +25,21 @@ export class MetricsController {
       ipAddress?: string;
       metadata?: Record<string, any>;
     },
-  ): Promise<Metric> {
-    return this.metricsService.trackVisit(
+  ): Promise<Metric | { skipped: boolean; reason: string }> {
+    const result = await this.metricsService.trackVisit(
       data.path,
       data.userId,
       data.userAgent,
       data.ipAddress,
       data.metadata,
     );
+
+    // If the result has a 'skipped' property, it means the visit was skipped
+    if ('skipped' in result) {
+      return result;
+    }
+
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
