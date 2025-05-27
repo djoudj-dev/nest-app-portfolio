@@ -35,31 +35,73 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<{ access_token: string }> {
-    const { email, password } = loginDto;
-    const user = await this.validateUser(email, password);
+    try {
+      const { email, password } = loginDto;
+      console.log(`Attempting login for email: ${email}`);
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      const user = await this.validateUser(email, password);
+
+      if (!user) {
+        console.log(`Invalid credentials for email: ${email}`);
+        // Instead of throwing inside the try block, return a rejected promise
+        return Promise.reject(new UnauthorizedException('Invalid credentials'));
+      }
+
+      console.log(`User authenticated successfully: ${email}`);
+      const payload: JwtPayload = { sub: user.id, email: user.email };
+
+      try {
+        const access_token = this.jwtService.sign(payload);
+        console.log(`JWT token generated successfully for user: ${email}`);
+
+        // Store the access token in the database
+        console.log(`Updating access token in database for user: ${email}`);
+        await this.userService.updateAccessToken(email, access_token);
+
+        // Generate and store a refresh token
+        console.log(`Generating refresh token for user: ${email}`);
+        const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+        const refreshTokenExpires = new Date();
+        refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7); // 7 days from now
+
+        console.log(`Updating refresh token in database for user: ${email}`);
+        await this.userService.updateRefreshToken(
+          email,
+          refreshToken,
+          refreshTokenExpires,
+        );
+
+        console.log(`Login process completed successfully for user: ${email}`);
+        return {
+          access_token,
+        };
+      } catch (tokenError: unknown) {
+        console.error('Error during token generation or storage:', tokenError);
+        if (tokenError instanceof Error) {
+          return Promise.reject(
+            new Error(`Authentication failed: ${tokenError.message}`),
+          );
+        }
+        return Promise.reject(
+          new Error(
+            'Authentication failed: Unable to generate or store tokens',
+          ),
+        );
+      }
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+
+      // If it's already an UnauthorizedException, rethrow it
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      // For other errors, throw a generic error to avoid leaking sensitive information
+      if (error instanceof Error) {
+        throw new Error(`Login failed: ${error.message}`);
+      }
+
+      throw new Error('Login failed: An unexpected error occurred');
     }
-
-    const payload: JwtPayload = { sub: user.id, email: user.email };
-    const access_token = this.jwtService.sign(payload);
-
-    // Store the access token in the database
-    await this.userService.updateAccessToken(email, access_token);
-
-    // Generate and store a refresh token
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-    const refreshTokenExpires = new Date();
-    refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7); // 7 days from now
-    await this.userService.updateRefreshToken(
-      email,
-      refreshToken,
-      refreshTokenExpires,
-    );
-
-    return {
-      access_token,
-    };
   }
 }
