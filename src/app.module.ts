@@ -6,7 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsMiddleware } from './metrics/middleware/metrics.middleware';
 import { ConfigModule } from '@nestjs/config';
-import { UploadModule } from './upload/upload.module';
+import { HeroModule } from './features/hero/hero.module';
 
 @Module({
   imports: [
@@ -16,7 +16,7 @@ import { UploadModule } from './upload/upload.module';
     AuthModule,
     PrismaModule,
     MetricsModule,
-    UploadModule,
+    HeroModule,
   ],
   controllers: [AppController],
   providers: [AppService],
