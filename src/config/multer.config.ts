@@ -27,7 +27,10 @@ export const getMulterConfig = () => ({
   ) => {
     const allowed = /\.(pdf|doc|docx)$/i;
     if (!allowed.test(file.originalname)) {
-      return cb(new Error('Only PDF, DOC, DOCX files are allowed'), false);
+      return cb(
+        new Error('Seuls les fichiers PDF, DOC, DOCX sont autorisés'),
+        false,
+      );
     }
     cb(null, true);
   },
