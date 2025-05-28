@@ -11,6 +11,7 @@ import {
   UploadedFile,
   ParseFilePipe,
   MaxFileSizeValidator,
+  UseGuards,
 } from '@nestjs/common';
 import { HeroService } from './hero.service';
 import { CreateHeroDto } from './dto/create-hero.dto';
@@ -18,13 +19,14 @@ import { UpdateHeroDto } from './dto/update-hero.dto';
 import { Hero } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { getMulterConfig } from '../../config/multer.config';
-import { AttachCvDto } from './dto/attach-cv.dto';
+import { JwtAuthGuard } from '../../auth/guard/jwt-auth.guard';
 
 @Controller('heroes')
 export class HeroController {
   constructor(private readonly heroService: HeroService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   async create(
     @Body(new ValidationPipe({ transform: true })) createHeroDto: CreateHeroDto,
   ): Promise<Hero> {
@@ -43,6 +45,7 @@ export class HeroController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateHeroDto: UpdateHeroDto,
@@ -51,11 +54,13 @@ export class HeroController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string): Promise<Hero> {
     return this.heroService.remove(id);
   }
 
   @Post('upload-cv')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', getMulterConfig()))
   uploadCv(
     @UploadedFile(
@@ -70,15 +75,5 @@ export class HeroController {
       path: file.path,
       mimetype: file.mimetype,
     };
-  }
-
-  @Post(':id/attach-cv')
-  async attachCvToHero(
-    @Param('id') id: string,
-    @Body() dto: AttachCvDto,
-  ): Promise<Hero> {
-    return this.heroService.uploadCv(id, {
-      path: dto.cvPath,
-    } as Express.Multer.File);
   }
 }
