@@ -3,7 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateHeroDto } from './dto/create-hero.dto';
 import { UpdateHeroDto } from './dto/update-hero.dto';
 import { Hero } from '@prisma/client';
-import { handleError } from '../../common/utils/handle-error';
+import { handleError } from '../../common/exceptions';
+import { HeroNotFoundException } from '../../common/exceptions';
+import * as fs from 'fs';
 
 @Injectable()
 export class HeroService {
@@ -44,7 +46,7 @@ export class HeroService {
     }
 
     if (!hero) {
-      throw new NotFoundException(`Hero with ID ${id} not found`);
+      throw new HeroNotFoundException(id);
     }
 
     return hero;
@@ -56,10 +58,8 @@ export class HeroService {
     cvPath?: string,
   ): Promise<Hero> {
     try {
-      // Check if hero exists
       await this.findOne(id);
 
-      // Prepare update data
       const data: Record<string, unknown> = { ...updateHeroDto };
       if (cvPath) {
         data.cvPath = cvPath;
@@ -70,8 +70,11 @@ export class HeroService {
         data,
       });
     } catch (error: unknown) {
-      // Don't catch NotFoundException, let it propagate
-      if (!(error instanceof NotFoundException)) {
+      // Don't catch NotFoundException or HeroNotFoundException, let it propagate
+      if (
+        !(error instanceof NotFoundException) &&
+        !(error instanceof HeroNotFoundException)
+      ) {
         return handleError(`update hero ${id}`, error);
       }
       throw error;
@@ -87,8 +90,11 @@ export class HeroService {
         where: { id },
       });
     } catch (error: unknown) {
-      // Don't catch NotFoundException, let it propagate
-      if (!(error instanceof NotFoundException)) {
+      // Don't catch NotFoundException or HeroNotFoundException, let it propagate
+      if (
+        !(error instanceof NotFoundException) &&
+        !(error instanceof HeroNotFoundException)
+      ) {
         return handleError(`delete hero ${id}`, error);
       }
       throw error;
@@ -96,7 +102,15 @@ export class HeroService {
   }
 
   async uploadCv(id: string, file: Express.Multer.File): Promise<Hero> {
-    await this.findOne(id);
+    const hero = await this.findOne(id);
+
+    if (hero.cvPath && fs.existsSync(hero.cvPath)) {
+      try {
+        fs.unlinkSync(hero.cvPath);
+      } catch (error) {
+        console.error(`Failed to delete old CV file: ${hero.cvPath}`, error);
+      }
+    }
 
     return this.prisma.hero.update({
       where: { id },

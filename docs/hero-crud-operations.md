@@ -200,3 +200,66 @@ Une entité Héro contient les champs suivants :
   "mimetype": "application/pdf"
 }
 ```
+
+## Mise à jour du CV d'un Héro
+
+**Point d'accès:** `PATCH /heroes/:id/cv`
+
+**Description:** Remplace le CV existant d'un héro par un nouveau fichier CV.
+
+**Paramètres:**
+- `id` (paramètre de chemin): L'identifiant unique du héro.
+
+**Requête:** Données de formulaire multipart avec un champ de fichier nommé 'file'.
+
+**Réponse:** Renvoie l'objet héro mis à jour avec le nouveau chemin du CV.
+
+**Exemple:**
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "firstName": "John",
+  "lastName": "Doe",
+  "jobTitle": "Software Engineer",
+  "jobDescription": "Develops web applications",
+  "cvPath": "uploads/1234567890-cv.pdf"
+}
+```
+
+**Erreurs:**
+- Renvoie une erreur 404 Not Found si le héro avec l'ID spécifié n'existe pas.
+- Renvoie une erreur 400 Bad Request si le fichier n'est pas valide (taille maximale: 5MB, formats acceptés: PDF, DOC, DOCX).
+
+**Remarque:** Cette opération supprime automatiquement l'ancien fichier CV du serveur s'il existe.
+
+## Obtenir les Informations du CV pour Prévisualisation
+
+**Point d'accès:** `GET /heroes/:id/cv`
+
+**Description:** Récupère les informations du fichier CV d'un héro spécifique pour permettre sa prévisualisation côté client.
+
+**Paramètres:**
+- `id` (paramètre de chemin): L'identifiant unique du héro.
+
+**Réponse:** Renvoie des informations détaillées sur le fichier CV, y compris l'URL pour accéder au fichier.
+
+**Exemple:**
+
+```json
+{
+  "filename": "1234567890-cv.pdf",
+  "fileUrl": "/uploads/1234567890-cv.pdf",
+  "fileType": "pdf",
+  "fileSize": 1234567,
+  "lastModified": "2023-06-15T10:30:45.000Z",
+  "mimetype": "application/pdf"
+}
+```
+
+**Erreurs:**
+- Renvoie une erreur 404 Not Found si le héro avec l'ID spécifié n'existe pas.
+- Renvoie une erreur 404 Not Found si le héro n'a pas de CV associé.
+- Renvoie une erreur 404 Not Found si le fichier CV n'existe pas sur le serveur.
+
+**Remarque:** L'URL retournée dans `fileUrl` peut être utilisée directement dans un navigateur ou dans un composant de prévisualisation côté client pour afficher le CV.
