@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
-import { handleError } from '../../common/utils/handle-error';
+import { handleError } from '../../common/exceptions';
 import { User } from '@prisma/client';
 
 @Injectable()
@@ -72,6 +72,21 @@ export class UserService {
       });
     } catch (error: unknown) {
       return handleError('updatePassword', error);
+    }
+  }
+
+  async invalidateTokens(email: string): Promise<User> {
+    try {
+      return await this.prisma.user.update({
+        where: { email },
+        data: {
+          accessToken: null,
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
+      });
+    } catch (error: unknown) {
+      return handleError('invalidateTokens', error);
     }
   }
 }

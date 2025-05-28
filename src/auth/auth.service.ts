@@ -79,12 +79,12 @@ export class AuthService {
         console.error('Error during token generation or storage:', tokenError);
         if (tokenError instanceof Error) {
           return Promise.reject(
-            new Error(`Authentication failed: ${tokenError.message}`),
+            new Error(`Authentification échouée: ${tokenError.message}`),
           );
         }
         return Promise.reject(
           new Error(
-            'Authentication failed: Unable to generate or store tokens',
+            'Authentification échouée: Impossible de générer ou de stocker les tokens',
           ),
         );
       }
@@ -98,10 +98,35 @@ export class AuthService {
 
       // For other errors, throw a generic error to avoid leaking sensitive information
       if (error instanceof Error) {
-        throw new Error(`Login failed: ${error.message}`);
+        throw new Error(`Connexion échouée: ${error.message}`);
       }
 
-      throw new Error('Login failed: An unexpected error occurred');
+      throw new Error('Connexion échouée: Une erreur inattendue est survenue');
+    }
+  }
+
+  async logout(email: string): Promise<{ message: string }> {
+    try {
+      console.log(`Attempting logout for email: ${email}`);
+
+      // Invalidate all tokens for the user
+      await this.userService.invalidateTokens(email);
+
+      console.log(`Logout successful for email: ${email}`);
+      return {
+        message: 'Déconnexion réussie',
+      };
+    } catch (error: unknown) {
+      console.error('Logout error:', error);
+
+      // For errors, throw a generic error
+      if (error instanceof Error) {
+        throw new Error(`Déconnexion échouée: ${error.message}`);
+      }
+
+      throw new Error(
+        'Déconnexion échouée: Une erreur inattendue est survenue',
+      );
     }
   }
 }
