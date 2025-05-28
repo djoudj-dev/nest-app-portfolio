@@ -22,7 +22,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    let errorMessage: string | string[] = 'Internal server error';
+    let errorMessage: unknown = 'Internal server error';
 
     if (exception instanceof HttpException) {
       const errorResponse = exception.getResponse();
