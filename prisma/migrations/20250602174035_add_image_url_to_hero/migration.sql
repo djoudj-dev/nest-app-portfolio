@@ -1,0 +1,3 @@
+-- This migration is no longer needed as the Hero table has been removed
+-- AlterTable
+-- ALTER TABLE "Hero" ADD COLUMN     "imageUrl" TEXT;
