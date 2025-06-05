@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation de votre message</title>
+    <style>
+        :root {
+            --color-text: #4b3c7d;
+            --color-background: #ffffff;
+            --color-primary: #6c5ba7;
+            --color-secondary: #8a7eb5;
+            --color-accent: #d9b053;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--color-text);
+            background-color: var(--color-background);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid var(--color-primary);
+        }
+
+        .content {
+            padding: 20px 0;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            border-top: 1px solid var(--color-secondary);
+            font-size: 0.8em;
+            color: var(--color-secondary);
+        }
+
+        h1 {
+            color: var(--color-primary);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: var(--color-accent);
+            color: var(--color-text);
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Confirmation de votre message</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour {{name}},</p>
+            <p>Nous avons bien reçu votre message et nous vous en remercions.</p>
+            <p>Notre équipe va l'examiner et vous répondra dans les plus brefs délais.</p>
+            <p>Cordialement,</p>
+            <p>L'équipe du site</p>
+        </div>
+        <div class="footer">
+            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+        </div>
+    </div>
+</body>
+</html>
