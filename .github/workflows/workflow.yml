@@ -36,7 +36,7 @@ jobs:
 
       # Étape 3 : Installer PNPM
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
@@ -135,9 +135,9 @@ jobs:
           echo "* **Timestamp**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "* **Docker Image**: ${{ secrets.DOCKER_USERNAME }}/portfolio-backend:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
-      # Étape 11 : Notification de déploiement (optionnel)
+      # Étape 11 : Notification de déploiement Discord
       - name: Deployment Notification to Discord
-        if: always() && secrets.DISCORD_WEBHOOK_URL != ''
+        if: always()
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           JOB_STATUS: ${{ job.status }}
@@ -146,22 +146,26 @@ jobs:
           SHA: ${{ github.sha }}
           ACTOR: ${{ github.actor }}
         run: |
-          curl -H "Content-Type: application/json" \
-            -X POST \
-            -d '{
-              "username": "GitHub Actions",
-              "embeds": [{
-                "title": "🚀 Déploiement Portfolio Backend",
-                "color": "'"$(if [ "$JOB_STATUS" == 'success' ]; then echo 3066993; else echo 15158332; fi)"'",
-                "fields": [
-                  {"name": "📦 Repository", "value": "'"$REPO"'", "inline": true},
-                  {"name": "🌿 Branch", "value": "'"$REF"'", "inline": true},
-                  {"name": "🔖 Commit", "value": "'"$SHA"'", "inline": false},
-                  {"name": "👤 Déclenché par", "value": "'"$ACTOR"'", "inline": true},
-                  {"name": "📊 Statut", "value": "'"$JOB_STATUS"'", "inline": true}
-                ],
-                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-              }]
-            }' \
-            $DISCORD_WEBHOOK_URL
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -H "Content-Type: application/json" \
+              -X POST \
+              -d '{
+                "username": "GitHub Actions",
+                "embeds": [{
+                  "title": "🚀 Déploiement Portfolio Backend",
+                  "color": '"$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)"',
+                  "fields": [
+                    {"name": "📦 Repository", "value": "'"$REPO"'", "inline": true},
+                    {"name": "🌿 Branch", "value": "'"$REF"'", "inline": true},
+                    {"name": "🔖 Commit", "value": "'"$SHA"'", "inline": false},
+                    {"name": "👤 Déclenché par", "value": "'"$ACTOR"'", "inline": true},
+                    {"name": "📊 Statut", "value": "'"$JOB_STATUS"'", "inline": true}
+                  ],
+                  "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+                }]
+              }' \
+              "$DISCORD_WEBHOOK_URL"
+          else
+            echo "🔕 Aucun webhook Discord configuré."
+          fi
       
