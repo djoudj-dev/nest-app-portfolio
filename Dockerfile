@@ -1,72 +1,64 @@
-# Multi-stage build for a NestJS application
-
 # Stage 1: Build stage
 FROM node:20-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install pnpm globally
+# Install pnpm
 RUN npm install -g pnpm
 
-# Copy package.json and pnpm-lock.yaml
+# Copy dependency files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
+# Install all dependencies (including dev)
 RUN pnpm install
 
-# Copy the rest of the application
+# Copy rest of the project
 COPY . .
 
 # Generate Prisma client
-RUN pnpm prisma:generate
+RUN pnpm prisma generate
 
-# Build the application
+# Build the app
 RUN pnpm build
 
 # Stage 2: Production stage
 FROM node:20-alpine AS production
 
-# Set working directory
 WORKDIR /app
 
-# Install pnpm globally
+# Install pnpm
 RUN npm install -g pnpm
+
+# Set env
+ENV NODE_ENV=production
 
 # Create uploads directory
 RUN mkdir -p uploads
 
-# Set NODE_ENV to production
-ENV NODE_ENV=production
-
-# Copy package.json and pnpm-lock.yaml
+# Copy only what's needed
 COPY package.json pnpm-lock.yaml ./
-
-# Install only production dependencies
 RUN pnpm install --prod
 
-# Copy Prisma schema and migrations
-COPY prisma/schema.prisma prisma/
-COPY prisma/migrations/ prisma/migrations/
-
-# Copy mail templates
-COPY src/mail/templates/ src/mail/templates/
-
-# Copy built application from builder stage
+# Copy built application from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/@nestjs ./node_modules/@nestjs
+COPY --from=builder /app/node_modules/@types ./node_modules/@types
+COPY --from=builder /app/node_modules/class-transformer ./node_modules/class-transformer
+COPY --from=builder /app/node_modules/class-validator ./node_modules/class-validator
+COPY --from=builder /app/node_modules/rxjs ./node_modules/rxjs
+COPY --from=builder /app/node_modules/reflect-metadata ./node_modules/reflect-metadata
+COPY --from=builder /app/node_modules/nodemailer ./node_modules/nodemailer
+COPY --from=builder /app/node_modules/bcrypt ./node_modules/bcrypt
+COPY prisma ./prisma
+COPY src/mail/templates/ ./src/mail/templates/
 
-# Create a non-root user
-RUN addgroup -S appuser && adduser -S appuser -G appuser
+# Create user
+RUN addgroup -S appuser && adduser -S appuser -G appuser && \
+    chown -R appuser:appuser /app
 
-# Change ownership of the application files
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
 USER appuser
 
-# Expose the application port
 EXPOSE 3000
 
-# Start the application
 CMD ["node", "dist/main"]

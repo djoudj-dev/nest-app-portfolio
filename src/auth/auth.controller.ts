@@ -31,7 +31,9 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto): Promise<{ access_token: string }> {
+  async login(
+    @Body() loginDto: LoginDto,
+  ): Promise<{ access_token?: string; error?: string }> {
     try {
       this.logger.log(`Login attempt received for email: ${loginDto.email}`);
       const result = await this.authService.login(loginDto);

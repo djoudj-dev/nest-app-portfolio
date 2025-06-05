@@ -26,17 +26,17 @@ export class BadgeController {
   async create(
     @Body(new ValidationPipe({ transform: true }))
     createBadgeDto: CreateBadgeDto,
-  ): Promise<Badge> {
+  ): Promise<Badge | null> {
     return this.badgeService.create(createBadgeDto);
   }
 
   @Get()
-  findAll(): Promise<Badge[]> {
+  findAll(): Promise<Badge[] | null> {
     return this.badgeService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Badge> {
+  findOne(@Param('id') id: string): Promise<Badge | null> {
     return this.badgeService.findOne(id);
   }
 
@@ -46,7 +46,7 @@ export class BadgeController {
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true }))
     updateBadgeDto: UpdateBadgeDto,
-  ): Promise<Badge> {
+  ): Promise<Badge | null> {
     return this.badgeService.update(id, updateBadgeDto);
   }
 
