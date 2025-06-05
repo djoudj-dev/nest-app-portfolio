@@ -8,64 +8,34 @@ import { handleError } from '../common/exceptions';
 export class MetricsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Checks if a user agent string belongs to a bot
-   * @param userAgent The user agent string to check
-   * @returns true if the user agent is from a bot, false otherwise
-   */
-  private isBot(userAgent?: string | null): boolean {
-    if (!userAgent) return false;
-
-    const userAgentLower = userAgent.toLowerCase();
-
-    // Common bot identifiers
-    const botPatterns = [
-      'bot',
-      'crawler',
-      'spider',
-      'slurp',
-      'baiduspider',
-      'yandexbot',
-      'facebookexternalhit',
-      'linkedinbot',
-      'twitterbot',
-      'slackbot',
-      'telegrambot',
-      'whatsapp',
-      'ahrefsbot',
-      'semrushbot',
-      'pingdom',
-      'googlebot',
-      'bingbot',
-      'yandex',
-      'duckduckbot',
-      'ia_archiver',
-      'applebot',
-      'headlesschrome',
-      'lighthouse',
-      'pagespeed',
-      'ptst',
-      'uptimerobot',
-      'bitlybot',
-      'discordbot',
-      'curl',
-      'wget',
-      'python-requests',
-      'axios',
-      'postman',
-      'insomnia',
-      'screaming frog',
-      'sitebulb',
-      'netcraft',
-      'check_http',
-      'monitoring',
-    ];
-
-    return botPatterns.some((pattern) => userAgentLower.includes(pattern));
-  }
-
   async createMetric(createMetricDto: CreateMetricDto): Promise<Metric> {
     try {
+      if (createMetricDto.ipAddress) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const existingMetric = await this.prisma.metric.findFirst({
+          where: {
+            type: createMetricDto.type,
+            ipAddress: createMetricDto.ipAddress,
+            createdAt: {
+              gte: today,
+              lt: tomorrow,
+            },
+          },
+        });
+
+        if (existingMetric) {
+          console.log(
+            `Duplicate ${createMetricDto.type} metric skipped for IP ${createMetricDto.ipAddress}`,
+          );
+          return existingMetric;
+        }
+      }
+
       return await this.prisma.metric.create({
         data: {
           type: createMetricDto.type,
@@ -89,32 +59,7 @@ export class MetricsService {
     metadata?: Record<string, any>,
   ): Promise<Metric | { skipped: boolean; reason: string }> {
     try {
-      // Skip recording visits from bots
-      if (this.isBot(userAgent)) {
-        console.log(`Bot visit skipped: ${userAgent}`);
-        return { skipped: true, reason: 'Bot traffic detected' };
-      }
-
-      // Skip recording duplicate visits from the same IP address to the same path
-      if (ipAddress) {
-        const existingVisit = await this.prisma.metric.findFirst({
-          where: {
-            type: MetricType.VISIT,
-            path,
-            ipAddress,
-          },
-        });
-
-        if (existingVisit) {
-          console.log(`Duplicate visit skipped: ${ipAddress} to ${path}`);
-          return {
-            skipped: true,
-            reason: 'Duplicate visit from same IP address',
-          };
-        }
-      }
-
-      // Create the metric and return it
+      // Create the metric - the createMetric method will handle duplicate checking
       return await this.createMetric({
         type: MetricType.VISIT,
         path,
@@ -132,41 +77,26 @@ export class MetricsService {
     }
   }
 
-  async getMetrics(type?: MetricType, isBot?: boolean): Promise<Metric[]> {
+  async getMetrics(type?: MetricType): Promise<Metric[]> {
     try {
       const where = type ? { type } : {};
 
-      // Get all metrics first
-      const metrics = await this.prisma.metric.findMany({
+      // Get all metrics
+      return await this.prisma.metric.findMany({
         where,
         orderBy: {
           createdAt: 'desc',
         },
-      });
-
-      // If isBot is undefined, return all metrics
-      if (isBot === undefined) {
-        return metrics;
-      }
-
-      // Filter metrics by bot status
-      return metrics.filter((metric) => {
-        const isBotVisit = this.isBot(metric.userAgent);
-        return isBot ? isBotVisit : !isBotVisit;
       });
     } catch (error: unknown) {
       return handleError('getMetrics', error);
     }
   }
 
-  async getMetricsByPath(
-    path: string,
-    type?: MetricType,
-    isBot?: boolean,
-  ): Promise<Metric[]> {
+  async getMetricsByPath(path: string, type?: MetricType): Promise<Metric[]> {
     try {
-      // Get metrics by path
-      const metrics = await this.prisma.metric.findMany({
+      // Get metrics by path and type
+      return await this.prisma.metric.findMany({
         where: {
           path,
           ...(type && { type }),
@@ -174,17 +104,6 @@ export class MetricsService {
         orderBy: {
           createdAt: 'desc',
         },
-      });
-
-      // If isBot is undefined, return all metrics
-      if (isBot === undefined) {
-        return metrics;
-      }
-
-      // Filter metrics by bot status
-      return metrics.filter((metric) => {
-        const isBotVisit = this.isBot(metric.userAgent);
-        return isBot ? isBotVisit : !isBotVisit;
       });
     } catch (error: unknown) {
       return handleError('getMetricsByPath', error);
@@ -217,95 +136,220 @@ export class MetricsService {
     }
   }
 
-  /**
-   * Gets metrics from bot traffic
-   * @param type Optional metric type filter
-   * @returns Array of metrics from bot traffic
-   */
   async getBotMetrics(type?: MetricType): Promise<Metric[]> {
     try {
-      const metrics = await this.getMetrics(type);
-      return metrics.filter((metric) => this.isBot(metric.userAgent));
+      const botMetrics = await this.prisma.metric.findMany({
+        where: {
+          type: MetricType.BOT,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!type || type === MetricType.BOT) {
+        return botMetrics;
+      }
+
+      return botMetrics.filter((metric) => metric.type === type);
     } catch (error: unknown) {
       return handleError('getBotMetrics', error);
     }
   }
 
-  /**
-   * Gets metrics from real user traffic
-   * @param type Optional metric type filter
-   * @returns Array of metrics from real user traffic
-   */
   async getRealUserMetrics(type?: MetricType): Promise<Metric[]> {
     try {
-      const metrics = await this.getMetrics(type);
-      return metrics.filter((metric) => !this.isBot(metric.userAgent));
+      // Get metrics with VISIT type (real users)
+      const whereClause = {
+        type: type || MetricType.VISIT,
+      };
+
+      return await this.prisma.metric.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
     } catch (error: unknown) {
       return handleError('getRealUserMetrics', error);
     }
   }
 
-  /**
-   * Gets bot metrics by path
-   * @param path The path to filter by
-   * @param type Optional metric type filter
-   * @returns Array of bot metrics for the specified path
-   */
-  async getBotMetricsByPath(
-    path: string,
-    type?: MetricType,
-  ): Promise<Metric[]> {
+  async getBotMetricsByPath(path: string): Promise<Metric[]> {
     try {
-      const metrics = await this.getMetricsByPath(path, type);
-      return metrics.filter((metric) => this.isBot(metric.userAgent));
+      return await this.prisma.metric.findMany({
+        where: {
+          path,
+          type: MetricType.BOT,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
     } catch (error: unknown) {
       return handleError('getBotMetricsByPath', error);
     }
   }
 
-  /**
-   * Gets real user metrics by path
-   * @param path The path to filter by
-   * @param type Optional metric type filter
-   * @returns Array of real user metrics for the specified path
-   */
   async getRealUserMetricsByPath(
     path: string,
     type?: MetricType,
   ): Promise<Metric[]> {
     try {
-      const metrics = await this.getMetricsByPath(path, type);
-      return metrics.filter((metric) => !this.isBot(metric.userAgent));
+      return await this.prisma.metric.findMany({
+        where: {
+          path,
+          type: type || MetricType.VISIT,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
     } catch (error: unknown) {
       return handleError('getRealUserMetricsByPath', error);
     }
   }
 
-  /**
-   * Gets count of bot metrics
-   * @param type Optional metric type filter
-   * @returns Count of bot metrics
-   */
-  async getBotMetricCount(type?: MetricType): Promise<number> {
+  async getBotMetricCount(): Promise<number> {
     try {
-      const metrics = await this.getMetrics(type);
-      return metrics.filter((metric) => this.isBot(metric.userAgent)).length;
+      return await this.prisma.metric.count({
+        where: {
+          type: MetricType.BOT,
+        },
+      });
     } catch (error: unknown) {
       return handleError('getBotMetricCount', error);
     }
   }
 
-  /**
-   * Gets count of real user metrics
-   * @param type Optional metric type filter
-   * @returns Count of real user metrics
-   */
-  async getRealUserMetricCount(type?: MetricType): Promise<number> {
+  async getCvVisitMetricCount(): Promise<number> {
     try {
-      const metrics = await this.getMetrics(type);
-      return metrics.filter((metric) => !this.isBot(metric.userAgent)).length;
+      return await this.prisma.metric.count({
+        where: {
+          type: MetricType.CV_VISIT,
+        },
+      });
+    } catch (error: unknown) {
+      return handleError('getCvVisitMetricCount', error);
+    }
+  }
+
+  async getCvClickMetricCount(): Promise<number> {
+    try {
+      return await this.prisma.metric.count({
+        where: {
+          type: MetricType.CV_CLICK,
+        },
+      });
+    } catch (error: unknown) {
+      return handleError('getCvClickMetricCount', error);
+    }
+  }
+
+  async getRealUserMetricCount(): Promise<number> {
+    try {
+      return await this.prisma.metric.count({
+        where: {
+          type: MetricType.VISIT,
+        },
+      });
     } catch (error: unknown) {
       return handleError('getRealUserMetricCount', error);
+    }
+  }
+
+  async getUniqueUsersPerDay(date?: Date): Promise<number> {
+    try {
+      const targetDate = date || new Date();
+      targetDate.setHours(0, 0, 0, 0);
+
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const uniqueUsers = await this.prisma.metric.findMany({
+        where: {
+          type: MetricType.VISIT,
+          createdAt: {
+            gte: targetDate,
+            lt: nextDay,
+          },
+          ipAddress: {
+            not: null,
+          },
+        },
+        distinct: ['ipAddress'],
+        select: {
+          ipAddress: true,
+        },
+      });
+
+      return uniqueUsers.length;
+    } catch (error: unknown) {
+      return handleError('getUniqueUsersPerDay', error);
+    }
+  }
+
+  async getUniqueBotsPerDay(date?: Date): Promise<number> {
+    try {
+      const targetDate = date || new Date();
+      targetDate.setHours(0, 0, 0, 0);
+
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      // Get distinct IP addresses for BOT metrics on the specified day
+      const uniqueBots = await this.prisma.metric.findMany({
+        where: {
+          type: MetricType.BOT,
+          createdAt: {
+            gte: targetDate,
+            lt: nextDay,
+          },
+          ipAddress: {
+            not: null,
+          },
+        },
+        distinct: ['ipAddress'],
+        select: {
+          ipAddress: true,
+        },
+      });
+
+      return uniqueBots.length;
+    } catch (error: unknown) {
+      return handleError('getUniqueBotsPerDay', error);
+    }
+  }
+
+  async getUniqueCvClicksPerDay(date?: Date): Promise<number> {
+    try {
+      const targetDate = date || new Date();
+      targetDate.setHours(0, 0, 0, 0);
+
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      // Get distinct IP addresses for CV_CLICK metrics on the specified day
+      const uniqueClicks = await this.prisma.metric.findMany({
+        where: {
+          type: MetricType.CV_CLICK,
+          createdAt: {
+            gte: targetDate,
+            lt: nextDay,
+          },
+          ipAddress: {
+            not: null,
+          },
+        },
+        distinct: ['ipAddress'],
+        select: {
+          ipAddress: true,
+        },
+      });
+
+      return uniqueClicks.length;
+    } catch (error: unknown) {
+      return handleError('getUniqueCvClicksPerDay', error);
     }
   }
 }

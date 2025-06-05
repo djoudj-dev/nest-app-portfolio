@@ -1,143 +1,130 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { MetricsService } from './metrics.service';
 import { Metric, MetricType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
+import { Request } from 'express';
 
 @Controller('metrics')
 export class BotMetricsController {
   constructor(private readonly metricsService: MetricsService) {}
 
-  /**
-   * Get metrics from bot traffic
-   */
   @UseGuards(JwtAuthGuard)
   @Get('bots')
   async getBotMetrics(@Query('type') type?: MetricType): Promise<Metric[]> {
-    const allMetrics = await this.metricsService.getMetrics(type);
-    return allMetrics.filter((metric) => this.isBot(metric.userAgent));
+    return this.metricsService.getBotMetrics(type);
   }
 
-  /**
-   * Get metrics from real user traffic
-   */
   @UseGuards(JwtAuthGuard)
   @Get('real-users')
   async getRealUserMetrics(
     @Query('type') type?: MetricType,
   ): Promise<Metric[]> {
-    const allMetrics = await this.metricsService.getMetrics(type);
-    return allMetrics.filter((metric) => !this.isBot(metric.userAgent));
+    return this.metricsService.getRealUserMetrics(type);
   }
 
-  /**
-   * Get bot metrics by path
-   */
   @UseGuards(JwtAuthGuard)
   @Get('bots/path')
-  async getBotMetricsByPath(
-    @Query('path') path: string,
-    @Query('type') type?: MetricType,
-  ): Promise<Metric[]> {
-    const pathMetrics = await this.metricsService.getMetricsByPath(path, type);
-    return pathMetrics.filter((metric) => this.isBot(metric.userAgent));
+  async getBotMetricsByPath(@Query('path') path: string): Promise<Metric[]> {
+    return this.metricsService.getBotMetricsByPath(path);
   }
 
-  /**
-   * Get real user metrics by path
-   */
   @UseGuards(JwtAuthGuard)
   @Get('real-users/path')
   async getRealUserMetricsByPath(
     @Query('path') path: string,
     @Query('type') type?: MetricType,
   ): Promise<Metric[]> {
-    const pathMetrics = await this.metricsService.getMetricsByPath(path, type);
-    return pathMetrics.filter((metric) => !this.isBot(metric.userAgent));
+    return this.metricsService.getRealUserMetricsByPath(path, type);
   }
 
-  /**
-   * Get count of bot metrics
-   */
   @UseGuards(JwtAuthGuard)
   @Get('bots/count')
-  async getBotMetricCount(
-    @Query('type') type?: MetricType,
-  ): Promise<{ count: number }> {
-    const allMetrics = await this.metricsService.getMetrics(type);
-    const count = allMetrics.filter((metric) =>
-      this.isBot(metric.userAgent),
-    ).length;
+  async getBotMetricCount(): Promise<{ count: number }> {
+    const count = await this.metricsService.getBotMetricCount();
     return { count };
   }
 
-  /**
-   * Get count of real user metrics
-   */
   @UseGuards(JwtAuthGuard)
   @Get('real-users/count')
-  async getRealUserMetricCount(
-    @Query('type') type?: MetricType,
-  ): Promise<{ count: number }> {
-    const allMetrics = await this.metricsService.getMetrics(type);
-    const count = allMetrics.filter(
-      (metric) => !this.isBot(metric.userAgent),
-    ).length;
+  async getRealUserMetricCount(): Promise<{ count: number }> {
+    const count = await this.metricsService.getRealUserMetricCount();
     return { count };
   }
 
-  /**
-   * Checks if a user agent string belongs to a bot
-   * @param userAgent The user agent string to check
-   * @returns true if the user agent is from a bot, false otherwise
-   */
-  private isBot(userAgent?: string | null): boolean {
-    if (!userAgent) return false;
+  @UseGuards(JwtAuthGuard)
+  @Get('unique-users/count')
+  async getUniqueUsersCount(
+    @Query('date') dateStr?: string,
+  ): Promise<{ count: number }> {
+    const date = dateStr ? new Date(dateStr) : undefined;
+    const count = await this.metricsService.getUniqueUsersPerDay(date);
+    return { count };
+  }
 
-    const userAgentLower = userAgent.toLowerCase();
+  @UseGuards(JwtAuthGuard)
+  @Get('unique-bots/count')
+  async getUniqueBotsCount(
+    @Query('date') dateStr?: string,
+  ): Promise<{ count: number }> {
+    const date = dateStr ? new Date(dateStr) : undefined;
+    const count = await this.metricsService.getUniqueBotsPerDay(date);
+    return { count };
+  }
 
-    // Common bot identifiers
-    const botPatterns = [
-      'bot',
-      'crawler',
-      'spider',
-      'slurp',
-      'baiduspider',
-      'yandexbot',
-      'facebookexternalhit',
-      'linkedinbot',
-      'twitterbot',
-      'slackbot',
-      'telegrambot',
-      'whatsapp',
-      'ahrefsbot',
-      'semrushbot',
-      'pingdom',
-      'googlebot',
-      'bingbot',
-      'yandex',
-      'duckduckbot',
-      'ia_archiver',
-      'applebot',
-      'headlesschrome',
-      'lighthouse',
-      'pagespeed',
-      'ptst',
-      'uptimerobot',
-      'bitlybot',
-      'discordbot',
-      'curl',
-      'wget',
-      'python-requests',
-      'axios',
-      'postman',
-      'insomnia',
-      'screaming frog',
-      'sitebulb',
-      'netcraft',
-      'check_http',
-      'monitoring',
-    ];
+  @UseGuards(JwtAuthGuard)
+  @Get('cv/count')
+  async getCvVisitMetricCount(): Promise<{ count: number }> {
+    const count = await this.metricsService.getCvVisitMetricCount();
+    return { count };
+  }
 
-    return botPatterns.some((pattern) => userAgentLower.includes(pattern));
+  @UseGuards(JwtAuthGuard)
+  @Get('cv-clicks/count')
+  async getCvClickMetricCount(): Promise<{ count: number }> {
+    const count = await this.metricsService.getCvClickMetricCount();
+    return { count };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('unique-cv-clicks/count')
+  async getUniqueCvClicksCount(
+    @Query('date') dateStr?: string,
+  ): Promise<{ count: number }> {
+    const date = dateStr ? new Date(dateStr) : undefined;
+    const count = await this.metricsService.getUniqueCvClicksPerDay(date);
+    return { count };
+  }
+
+  @Post('cv-click')
+  async trackCvClick(
+    @Body() body: { cvId?: string },
+    @Req() req: Request,
+  ): Promise<Metric> {
+    const userAgent = req.headers['user-agent'] as string;
+    const forwardedFor = req.headers['x-forwarded-for'] as string | undefined;
+    const ipAddress = forwardedFor || (req.socket.remoteAddress as string);
+
+    const user = req.user as { userId: string; email: string } | undefined;
+    const userId = user?.userId;
+
+    return this.metricsService.createMetric({
+      type: MetricType.CV_CLICK,
+      path: '/cv',
+      userId,
+      userAgent,
+      ipAddress,
+      metadata: {
+        cvId: body.cvId,
+        isClick: true,
+      },
+    });
   }
 }

@@ -1,39 +1,72 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { MetricType } from '@prisma/client';
 import { MetricsService } from '../metrics.service';
-
-interface AuthUser {
-  userId: string;
-  email: string;
-}
+import { BotDetectorService } from '../utils/bot-detector';
 
 @Injectable()
 export class MetricsMiddleware implements NestMiddleware {
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(
+    private readonly metricsService: MetricsService,
+    private readonly botDetector: BotDetectorService,
+  ) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const path = req.path;
+
+    // Skip processing for static files and uploads
     if (
-      req.path.startsWith('/metrics') ||
-      req.path.includes('.') ||
-      req.path.startsWith('/favicon.ico')
+      path.includes('.') ||
+      path.startsWith('/favicon.ico') ||
+      path.startsWith('/metrics') ||
+      path.startsWith('/uploads/')
     ) {
       return next();
     }
 
-    const path = req.path;
-    const userAgent = req.headers['user-agent'] as string;
+    const userAgent = req.headers['user-agent'] ?? '';
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string) ??
+      req.socket?.remoteAddress ??
+      '';
 
-    const forwardedFor = req.headers['x-forwarded-for'] as string | undefined;
-    const ipAddress = forwardedFor || (req.socket.remoteAddress as string);
+    const isBot = this.botDetector.isBot(userAgent);
+    const botType = isBot ? this.botDetector.identifyBotType(userAgent) : null;
 
-    const user = req.user as AuthUser | undefined;
-    const userId = user?.userId;
+    const metadata: Record<string, any> = {
+      isBot,
+      ...(isBot && { botType }),
+      userAgent,
+      ipAddress,
+    };
 
-    this.metricsService
-      .trackVisit(path, userId, userAgent, ipAddress)
-      .catch((error) => {
-        console.error('Error tracking visit:', error);
-      });
+    const isCvVisit = path === '/cv' || path.startsWith('/cv/');
+
+    const type: MetricType = isCvVisit
+      ? MetricType.CV_VISIT
+      : isBot
+        ? MetricType.BOT
+        : MetricType.VISIT;
+
+    const metricPayload = {
+      type,
+      path: isCvVisit ? '/cv' : path,
+      userAgent,
+      ipAddress,
+      metadata: {
+        ...metadata,
+        ...(isCvVisit && {
+          originalPath: path,
+          cvAccess: true,
+        }),
+      },
+    };
+
+    try {
+      await this.metricsService.createMetric(metricPayload);
+    } catch (error) {
+      console.error('❌ Error tracking metric:', error);
+    }
 
     next();
   }
