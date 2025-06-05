@@ -25,6 +25,38 @@ import { getImageMulterConfig } from '../../config/multer.config';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Import types for return type annotations
+type ProjectWithCategory = {
+  id: string;
+  title: string;
+  description: string;
+  image?: string | null;
+  categoryId: string;
+  deployUrl?: string | null;
+  iconDeploy: string;
+  technologies: string[];
+  priority: number;
+  repos: any;
+  createdAt: Date;
+  updatedAt: Date;
+  category: {
+    id: string;
+    label: string;
+    icon: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+};
+
+type ProjectCategory = {
+  id: string;
+  label: string;
+  icon: string;
+  createdAt: Date;
+  updatedAt: Date;
+  projects?: ProjectWithCategory[];
+};
+
 @Controller('projects')
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
@@ -34,12 +66,15 @@ export class ProjectController {
   async create(
     @Body(new ValidationPipe({ transform: true }))
     createProjectDto: CreateProjectDto,
-  ) {
+  ): Promise<ProjectWithCategory> {
     return this.projectService.create(createProjectDto);
   }
 
   @Get()
-  async findAll() {
+  async findAll(): Promise<{
+    projects: ProjectWithCategory[];
+    categories: { id: string; icon: string; label: string }[];
+  }> {
     const projects = await this.projectService.findAll();
     const categories = await this.projectService.findAllCategories();
 
@@ -61,12 +96,12 @@ export class ProjectController {
 
   // Project Category endpoints
   @Get('categories')
-  findAllCategories() {
+  findAllCategories(): Promise<ProjectCategory[]> {
     return this.projectService.findAllCategories();
   }
 
   @Get('categories/:id')
-  findOneCategory(@Param('id') id: string) {
+  findOneCategory(@Param('id') id: string): Promise<ProjectCategory> {
     return this.projectService.findOneCategory(id);
   }
 
@@ -78,7 +113,7 @@ export class ProjectController {
       label: string;
       icon: string;
     },
-  ) {
+  ): Promise<ProjectCategory> {
     return this.projectService.createCategory(data);
   }
 
@@ -91,18 +126,18 @@ export class ProjectController {
       label?: string;
       icon?: string;
     },
-  ) {
+  ): Promise<ProjectCategory> {
     return this.projectService.updateCategory(id, data);
   }
 
   @Delete('categories/:id')
   @UseGuards(JwtAuthGuard)
-  removeCategory(@Param('id') id: string) {
+  removeCategory(@Param('id') id: string): Promise<ProjectCategory> {
     return this.projectService.removeCategory(id);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string): Promise<ProjectWithCategory> {
     return this.projectService.findOne(id);
   }
 
@@ -112,13 +147,13 @@ export class ProjectController {
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true }))
     updateProjectDto: UpdateProjectDto,
-  ) {
+  ): Promise<ProjectWithCategory> {
     return this.projectService.update(id, updateProjectDto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string) {
+  remove(@Param('id') id: string): Promise<ProjectWithCategory> {
     return this.projectService.remove(id);
   }
 
@@ -132,7 +167,7 @@ export class ProjectController {
       }),
     )
     file: Express.Multer.File,
-  ) {
+  ): { filename: string; path: string; mimetype: string } {
     // Convert the file path to a URL path by removing the leading './'
     const imagePath = file.path.replace(/^\.\//, '/');
 
@@ -154,7 +189,7 @@ export class ProjectController {
       }),
     )
     file: Express.Multer.File,
-  ) {
+  ): Promise<ProjectWithCategory> {
     return this.projectService.uploadImage(id, file);
   }
 
