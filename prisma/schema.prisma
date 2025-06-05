@@ -8,6 +8,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// This tells Prisma to run the seed script after migrations
+generator seeder {
+  provider = "prisma-client-js"
+  binaryTargets = ["native"]
+  previewFeatures = []
+  seed = "ts-node prisma/seed.ts"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -19,9 +27,14 @@ enum Role {
 
 enum MetricType {
   VISIT
+  BOT
+  CV_VISIT
+  CV_CLICK
   API_CALL
   ERROR
   PERFORMANCE
+  EMAIL_SENT
+  CONTACT_FORM_SUBMITTED
 }
 
 model User {
@@ -50,15 +63,82 @@ model Metric {
   ipAddress String?
   metadata  Json?
   createdAt DateTime   @default(now())
+
+  @@index([type, createdAt])
 }
 
-model Hero {
-  id            String   @id @default(cuid())
-  firstName     String
-  lastName      String
-  jobTitle      String
-  jobDescription String
-  cvPath        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model CV {
+  id        String   @id @default(cuid())
+  filePath  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum BadgeStatus {
+  DISPONIBLE
+  INDISPONIBLE
+  DISPONIBLE_A_PARTIR_DE
+}
+
+model Badge {
+  id             String      @id @default(uuid())
+  status         BadgeStatus @default(DISPONIBLE)
+  availableUntil DateTime?
+  isAvailable    Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@map("badges")
+}
+
+model ProjectCategory {
+  id        String    @id @default(uuid())
+  label     String
+  icon      String
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("project_categories")
+}
+
+model Project {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  image       String?
+  category    ProjectCategory @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  deployUrl   String?
+  iconDeploy  String
+  technologies String[]
+  priority    Int
+  repos       Json
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("projects")
+}
+
+model ProjectTechnology {
+  id        String   @id @default(uuid())
+  label     String
+  icon      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("project_technologies")
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
 }
