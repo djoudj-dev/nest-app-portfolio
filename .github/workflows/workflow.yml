@@ -1,12 +1,10 @@
-name: Deploy NestJS App to Docker
+name: Workflow NestJS
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
-# Ensure we don't have concurrent deployments for the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,33 +18,31 @@ jobs:
         node-version: [20.12]
 
     steps:
-      # Étape 1 : Checkout du code source
+      - name: ✅ Démarrage
+        run: echo "Lancement du déploiement..."
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
-      # Étape 2 : Installer Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      # Étape 3 : Installer PNPM
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
 
-      # Étape 4 : Récupérer le cache des dépendances
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -56,27 +52,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Installation des dépendances
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Génération du client Prisma
       - name: Generate Prisma client
         run: pnpm prisma:generate
 
-      # Audit de sécurité
       - name: Audit
         run: pnpm audit || true
 
-      # Vérification de la signature des audits
       - name: Audit Signature
         run: pnpm audit signatures || true
 
-      # Lint
       - name: Lint
         run: pnpm lint || true
 
-      # Build
       - name: Build
         run: |
           export NODE_ENV=production
@@ -84,11 +74,9 @@ jobs:
           mkdir -p dist/src/mail/templates
           cp -r src/mail/templates dist/src/mail/
 
-      # Étape 5 : Configurer Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Étape 6 : Récupérer le cache Docker
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
@@ -97,14 +85,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # Étape 7 : Connexion à Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Étape 8 : Construire et pousser l'image Docker
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -116,13 +102,11 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # Étape 9 : Déplacer le cache
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      # Étape 10 : Créer un résumé du déploiement
       - name: Create Deployment Summary
         if: always()
         run: |
@@ -135,7 +119,6 @@ jobs:
           echo "* **Timestamp**: $(date)" >> $GITHUB_STEP_SUMMARY
           echo "* **Docker Image**: ${{ secrets.DOCKER_USERNAME }}/portfolio-backend:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
-      # Étape 11 : Notification de déploiement Discord
       - name: Deployment Notification to Discord
         if: always()
         env:
@@ -147,13 +130,14 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: |
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            COLOR=$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)
             curl -H "Content-Type: application/json" \
               -X POST \
               -d '{
                 "username": "GitHub Actions",
                 "embeds": [{
                   "title": "🚀 Déploiement Portfolio Backend",
-                  "color": '"$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)"',
+                  "color": '"$COLOR"',
                   "fields": [
                     {"name": "📦 Repository", "value": "'"$REPO"'", "inline": true},
                     {"name": "🌿 Branch", "value": "'"$REF"'", "inline": true},
@@ -163,9 +147,7 @@ jobs:
                   ],
                   "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
                 }]
-              }' \
-              "$DISCORD_WEBHOOK_URL"
+              }' "$DISCORD_WEBHOOK_URL"
           else
             echo "🔕 Aucun webhook Discord configuré."
           fi
-      
