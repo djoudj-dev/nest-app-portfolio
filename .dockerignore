@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Node.js
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build artifacts
+dist
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE files
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Tests
+test
+.nyc_output
+
+# Uploads (will be created in the container)
+uploads/*
