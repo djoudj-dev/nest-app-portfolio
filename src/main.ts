@@ -8,13 +8,14 @@ import { AllExceptionsFilter } from './common/exceptions';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Apply global exception filter
-  app.useGlobalFilters(new AllExceptionsFilter());
-
   // Serve static files from the uploads directory
+  // This must be configured before any middleware or filters
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
   });
+
+  // Apply global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Enable CORS for Angular frontend
   let allowedOrigins = ['http://localhost:4200']; // Default fallback
