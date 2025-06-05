@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { Metric, MetricType } from '@prisma/client';
-import { handleError } from '../common/utils/handle-error';
+import { handleError } from '../common/exceptions';
 
 @Injectable()
 export class MetricsService {
