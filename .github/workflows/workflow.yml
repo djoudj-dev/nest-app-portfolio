@@ -27,17 +27,17 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -130,10 +130,16 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: |
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-            COLOR=$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)
-            TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            JSON='{"username":"GitHub Actions","embeds":[{"title":"🚀 Déploiement Portfolio Backend","color":'$COLOR',"fields":[{"name":"📦 Repository","value":"'$REPO'","inline":true},{"name":"🌿 Branch","value":"'$REF'","inline":true},{"name":"🔖 Commit","value":"'$SHA'","inline":false},{"name":"👤 Déclenché par","value":"'$ACTOR'","inline":true},{"name":"📊 Statut","value":"'$JOB_STATUS'","inline":true}],"timestamp":"'$TIMESTAMP'"}]}'
-            curl -H "Content-Type: application/json" -X POST -d "$JSON" "$DISCORD_WEBHOOK_URL"
+            # Validate webhook URL format
+            if [[ "$DISCORD_WEBHOOK_URL" =~ ^https://discord\.com/api/webhooks/ ]]; then
+              COLOR=$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)
+              TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              JSON='{"username":"GitHub Actions","embeds":[{"title":"🚀 Déploiement Portfolio Backend","color":'$COLOR',"fields":[{"name":"📦 Repository","value":"'$REPO'","inline":true},{"name":"🌿 Branch","value":"'$REF'","inline":true},{"name":"🔖 Commit","value":"'$SHA'","inline":false},{"name":"👤 Déclenché par","value":"'$ACTOR'","inline":true},{"name":"📊 Statut","value":"'$JOB_STATUS'","inline":true}],"timestamp":"'$TIMESTAMP'"}]}'
+              # Use --url option for better URL handling
+              curl --url "$DISCORD_WEBHOOK_URL" -H "Content-Type: application/json" -X POST -d "$JSON" || echo "Failed to send Discord notification"
+            else
+              echo "Invalid Discord webhook URL format. Must start with https://discord.com/api/webhooks/"
+            fi
           else
             echo "🔕 Aucun webhook Discord configuré."
           fi
