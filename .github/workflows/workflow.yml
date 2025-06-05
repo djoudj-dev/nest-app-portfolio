@@ -31,7 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -131,23 +131,9 @@ jobs:
         run: |
           if [ -n "$DISCORD_WEBHOOK_URL" ]; then
             COLOR=$(if [ "$JOB_STATUS" = "success" ]; then echo 3066993; else echo 15158332; fi)
-            curl -H "Content-Type: application/json" \
-              -X POST \
-              -d '{
-                "username": "GitHub Actions",
-                "embeds": [{
-                  "title": "🚀 Déploiement Portfolio Backend",
-                  "color": '"$COLOR"',
-                  "fields": [
-                    {"name": "📦 Repository", "value": "'"$REPO"'", "inline": true},
-                    {"name": "🌿 Branch", "value": "'"$REF"'", "inline": true},
-                    {"name": "🔖 Commit", "value": "'"$SHA"'", "inline": false},
-                    {"name": "👤 Déclenché par", "value": "'"$ACTOR"'", "inline": true},
-                    {"name": "📊 Statut", "value": "'"$JOB_STATUS"'", "inline": true}
-                  ],
-                  "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-                }]
-              }' "$DISCORD_WEBHOOK_URL"
+            TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            JSON='{"username":"GitHub Actions","embeds":[{"title":"🚀 Déploiement Portfolio Backend","color":'$COLOR',"fields":[{"name":"📦 Repository","value":"'$REPO'","inline":true},{"name":"🌿 Branch","value":"'$REF'","inline":true},{"name":"🔖 Commit","value":"'$SHA'","inline":false},{"name":"👤 Déclenché par","value":"'$ACTOR'","inline":true},{"name":"📊 Statut","value":"'$JOB_STATUS'","inline":true}],"timestamp":"'$TIMESTAMP'"}]}'
+            curl -H "Content-Type: application/json" -X POST -d "$JSON" "$DISCORD_WEBHOOK_URL"
           else
             echo "🔕 Aucun webhook Discord configuré."
           fi
