@@ -6,7 +6,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsMiddleware } from './metrics/middleware/metrics.middleware';
 import { ConfigModule } from '@nestjs/config';
-import { HeroModule } from './features/hero/hero.module';
+import { CvModule } from './features/cv/cv.module';
+import { BadgeModule } from './features/badge/badge.module';
+import { ProjectModule } from './features/projects/project.module';
+import { MailModule } from './mail/mail.module';
+import { ContactModule } from './features/contact/contact.module';
 
 @Module({
   imports: [
@@ -16,13 +20,17 @@ import { HeroModule } from './features/hero/hero.module';
     AuthModule,
     PrismaModule,
     MetricsModule,
-    HeroModule,
+    CvModule,
+    BadgeModule,
+    ProjectModule,
+    MailModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(MetricsMiddleware).forRoutes('*');
+    consumer.apply(MetricsMiddleware).exclude('uploads/(.*)').forRoutes('*');
   }
 }

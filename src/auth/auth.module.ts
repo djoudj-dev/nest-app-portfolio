@@ -7,11 +7,14 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from './user/user.module';
+import { OptionalJwtAuthGuard } from './guard/optional-jwt-auth.guard';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -25,7 +28,7 @@ import { UsersModule } from './user/user.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, OptionalJwtAuthGuard],
   exports: [AuthService],
 })
 export class AuthModule {}
