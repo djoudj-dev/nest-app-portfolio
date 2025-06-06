@@ -9,9 +9,6 @@ yarn-debug.log
 yarn-error.log
 pnpm-debug.log
 
-# Build artifacts
-dist
-
 # Environment variables
 .env
 .env.*
@@ -26,15 +23,14 @@ dist
 .DS_Store
 Thumbs.db
 
-# Docker
+# Docker config (OK à ignorer)
 Dockerfile
 .dockerignore
 docker-compose.yml
 docker-compose.*.yml
 
 # Tests
-test
 .nyc_output
 
-# Uploads (will be created in the container)
+# Uploads (OK, créé dans le conteneur)
 uploads/*
