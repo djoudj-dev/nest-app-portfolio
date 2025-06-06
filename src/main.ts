@@ -18,7 +18,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Enable CORS for Angular frontend
-  let allowedOrigins = ['http://localhost:4200']; // Default fallback
+  let allowedOrigins = ['https://nedellec-julien.fr']; // Default fallback
   try {
     if (process.env.ALLOWED_ORIGINS) {
       allowedOrigins = JSON.parse(process.env.ALLOWED_ORIGINS) as string[];
