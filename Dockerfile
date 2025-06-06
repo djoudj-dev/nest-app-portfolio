@@ -1,68 +1,42 @@
-# Stage 1: Build stage
+# Stage 1: Build
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
 RUN npm install -g pnpm
 
-# Copy dependency files
 COPY package.json pnpm-lock.yaml ./
-
-# Install all dependencies (including dev)
 RUN pnpm install
 
-# Copy rest of the project
 COPY . .
-
-# Generate Prisma client
 RUN pnpm prisma generate
-
-# Build the app
 RUN pnpm build
 
-
-# Stage 2: Production stage
+# Stage 2: Production
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install pnpm
 RUN npm install -g pnpm
 
-# Set env
 ENV NODE_ENV=production
 
-# Create uploads directory
-RUN mkdir -p uploads
-
-# Copy only what's needed
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod
 
-# Copy built application
+# Copie du build et des assets
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/mail/templates ./src/mail/templates
 
-# ✅ Copy runtime-only node_modules (pas besoin de .prisma)
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/@nestjs ./node_modules/@nestjs
-COPY --from=builder /app/node_modules/class-transformer ./node_modules/class-transformer
-COPY --from=builder /app/node_modules/class-validator ./node_modules/class-validator
-COPY --from=builder /app/node_modules/rxjs ./node_modules/rxjs
-COPY --from=builder /app/node_modules/reflect-metadata ./node_modules/reflect-metadata
-COPY --from=builder /app/node_modules/nodemailer ./node_modules/nodemailer
-COPY --from=builder /app/node_modules/bcrypt ./node_modules/bcrypt
+# Copie TOTALE des node_modules post install (inclut .prisma)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy additional assets
-COPY prisma ./prisma
-COPY src/mail/templates/ ./src/mail/templates/
-
-# Create non-root user
+# Sécurité
 RUN addgroup -S appuser && adduser -S appuser -G appuser && \
-    chown -R appuser:appuser /app
+  chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 3000
 
-# ✅ Path correct vers le point d'entrée NestJS
 CMD ["node", "dist/src/main"]
