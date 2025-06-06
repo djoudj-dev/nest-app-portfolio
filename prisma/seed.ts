@@ -3,6 +3,54 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  // après const technologies = [...];
+
+  const categories = [
+    { id: 'api', label: 'API', icon: 'icons/project/category/api.svg' },
+    { id: 'data', label: 'Data', icon: 'icons/project/category/data.svg' },
+    {
+      id: 'fullstack',
+      label: 'Fullstack',
+      icon: 'icons/project/category/fullstack.svg',
+    },
+    { id: 'game', label: 'Game', icon: 'icons/project/category/game.svg' },
+    {
+      id: 'library',
+      label: 'Library',
+      icon: 'icons/project/category/library.svg',
+    },
+    {
+      id: 'mobile',
+      label: 'Mobile',
+      icon: 'icons/project/category/mobile.svg',
+    },
+    {
+      id: 'script',
+      label: 'Script',
+      icon: 'icons/project/category/script.svg',
+    },
+    { id: 'web', label: 'Frontend', icon: 'icons/project/category/web.svg' },
+  ];
+
+  console.log('Seeding project categories...');
+
+  for (const category of categories) {
+    try {
+      const exists = await prisma.projectCategory.findUnique({
+        where: { id: category.id },
+      });
+
+      if (!exists) {
+        await prisma.projectCategory.create({ data: category });
+        console.log(`✅ Created: ${category.label}`);
+      } else {
+        console.log(`⚠️  Exists: ${category.label}`);
+      }
+    } catch (err) {
+      console.error(`❌ Error with ${category.label}`, err);
+    }
+  }
+
   const technologies = [
     { id: 'java', label: 'Java', icon: 'icons/stacks/backend/java.svg' },
     { id: 'kotlin', label: 'Kotlin', icon: 'icons/stacks/backend/kotlin.svg' },
