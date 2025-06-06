@@ -1,27 +1,28 @@
-# ----------- STAGE 1: BUILD -----------
+# Stage 1: Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm globally
+# Install pnpm
 RUN npm install -g pnpm
 
-# Copy dependency definitions
+# Copy dependency files
 COPY package.json pnpm-lock.yaml ./
 
-# Install full dependencies (dev + prod)
+# Install all dependencies (including dev)
 RUN pnpm install
 
-# Copy full project
+# Copy rest of the project
 COPY . .
 
 # Generate Prisma client
 RUN pnpm prisma generate
 
-# Build NestJS project
+# Build the app
 RUN pnpm build
 
-# ----------- STAGE 2: PRODUCTION -----------
+
+# Stage 2: Production stage
 FROM node:20-alpine AS production
 
 WORKDIR /app
@@ -29,24 +30,21 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
-# Define environment
+# Set env
 ENV NODE_ENV=production
 
 # Create uploads directory
 RUN mkdir -p uploads
 
-# Copy dependency definitions and install only production deps
+# Copy only what's needed
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod
 
-# Copy build output from builder
+# Copy built application
 COPY --from=builder /app/dist ./dist
 
-# Copy Prisma client (runtime files)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# ✅ Copy runtime-only node_modules (pas besoin de .prisma)
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# Copy other runtime dependencies (cleaned, focused)
 COPY --from=builder /app/node_modules/@nestjs ./node_modules/@nestjs
 COPY --from=builder /app/node_modules/class-transformer ./node_modules/class-transformer
 COPY --from=builder /app/node_modules/class-validator ./node_modules/class-validator
@@ -55,16 +53,16 @@ COPY --from=builder /app/node_modules/reflect-metadata ./node_modules/reflect-me
 COPY --from=builder /app/node_modules/nodemailer ./node_modules/nodemailer
 COPY --from=builder /app/node_modules/bcrypt ./node_modules/bcrypt
 
-# Copy Prisma schema files & mail templates
+# Copy additional assets
 COPY prisma ./prisma
-COPY src/mail/templates ./src/mail/templates
+COPY src/mail/templates/ ./src/mail/templates/
 
-# Add unprivileged user
+# Create non-root user
 RUN addgroup -S appuser && adduser -S appuser -G appuser && \
     chown -R appuser:appuser /app
-
 USER appuser
 
 EXPOSE 3000
 
+# ✅ Path correct vers le point d'entrée NestJS
 CMD ["node", "dist/src/main"]
