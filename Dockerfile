@@ -27,7 +27,7 @@ RUN pnpm install --prod
 # Copie du build et des assets
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/mail/templates ./src/mail/templates
+COPY --from=builder /app/src/features/contact/mail/templates ./src/features/contact/mail/templates
 
 # Copie TOTALE des node_modules post install (inclut .prisma)
 COPY --from=builder /app/node_modules ./node_modules
