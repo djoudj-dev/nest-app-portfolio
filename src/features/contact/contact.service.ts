@@ -1,23 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { Contact } from '@prisma/client';
-import { MailService } from '../../mail/mail.service';
-import { MetricsService } from '../../metrics/metrics.service';
-import { MetricType } from '@prisma/client';
-import { handleError } from '../../common/exceptions';
+import { MailService } from './mail/mail.service';
+import { handleError } from '../../common/exceptions/handle-error';
 
 @Injectable()
 export class ContactService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
-    private readonly metricsService: MetricsService,
   ) {}
 
+  /**
+   * Crée un nouveau message de contact et envoie les emails associés.
+   */
   async create(createContactDto: CreateContactDto): Promise<Contact> {
     try {
-      // Create contact record in database
       const contact = await this.prisma.contact.create({
         data: {
           name: createContactDto.name,
@@ -27,20 +26,11 @@ export class ContactService {
         },
       });
 
-      // Track contact form submission in metrics
-      await this.metricsService.createMetric({
-        type: MetricType.CONTACT_FORM_SUBMITTED,
-        path: '/contact',
-        metadata: { contactId: contact.id },
-      });
-
-      // Send confirmation email to user
       await this.mailService.sendContactConfirmation(
         createContactDto.email,
         createContactDto.name,
       );
 
-      // Send notification email to admin
       await this.mailService.sendContactNotification({
         name: createContactDto.name,
         email: createContactDto.email,
@@ -50,32 +40,45 @@ export class ContactService {
 
       return contact;
     } catch (error) {
-      return handleError('createContact', error);
+      return handleError(
+        'createContact',
+        error,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
+  /**
+   * Récupère tous les messages de contact, triés du plus récent au plus ancien.
+   */
   async findAll(): Promise<Contact[]> {
     try {
       return await this.prisma.contact.findMany({
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: { createdAt: 'desc' },
       });
     } catch (error) {
-      return handleError('findAllContacts', error);
+      return handleError(
+        'findAllContacts',
+        error,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
+  /**
+   * Récupère un message de contact unique par ID.
+   */
   async findOne(id: string): Promise<Contact | null> {
     try {
-      return await this.prisma.contact.findUnique({
-        where: { id },
-      });
+      return await this.prisma.contact.findUnique({ where: { id } });
     } catch (error) {
-      return handleError('findOneContact', error);
+      return handleError('findOneContact', error, HttpStatus.NOT_FOUND);
     }
   }
 
+  /**
+   * Marque un message comme lu.
+   */
   async markAsRead(id: string): Promise<Contact> {
     try {
       return await this.prisma.contact.update({
@@ -83,27 +86,33 @@ export class ContactService {
         data: { isRead: true },
       });
     } catch (error) {
-      return handleError('markContactAsRead', error);
+      return handleError('markContactAsRead', error, HttpStatus.BAD_REQUEST);
     }
   }
 
+  /**
+   * Supprime un message de contact.
+   */
   async remove(id: string): Promise<Contact> {
     try {
-      return await this.prisma.contact.delete({
-        where: { id },
-      });
+      return await this.prisma.contact.delete({ where: { id } });
     } catch (error) {
-      return handleError('removeContact', error);
+      return handleError('removeContact', error, HttpStatus.BAD_REQUEST);
     }
   }
 
+  /**
+   * Compte le nombre de messages non lus.
+   */
   async getUnreadCount(): Promise<number> {
     try {
-      return await this.prisma.contact.count({
-        where: { isRead: false },
-      });
+      return await this.prisma.contact.count({ where: { isRead: false } });
     } catch (error) {
-      return handleError('getUnreadContactCount', error);
+      return handleError(
+        'getUnreadContactCount',
+        error,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

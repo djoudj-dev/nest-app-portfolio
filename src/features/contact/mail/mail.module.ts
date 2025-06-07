@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MailService } from './mail.service';
-import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
-  imports: [MetricsModule],
+  imports: [],
   providers: [MailService],
   exports: [MailService],
 })

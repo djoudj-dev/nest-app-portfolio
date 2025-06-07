@@ -1,37 +1,65 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
-import { AllExceptionsFilter } from './common/exceptions';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
+import fastifyCors, { type FastifyCorsOptions } from '@fastify/cors';
+import type { FastifyRequest, FastifyInstance } from 'fastify';
 
-function parseAllowedOrigins(): string[] {
-  const env = process.env.ALLOWED_ORIGINS;
+function getAllowedOrigins(): string[] {
+  const fallback = ['https://nedellec-julien.fr'];
+  const raw = process.env.ALLOWED_ORIGINS ?? '[]';
 
   try {
-    const parsed: unknown = JSON.parse(env ?? '[]');
+    const parsed: unknown = JSON.parse(raw);
     if (
       Array.isArray(parsed) &&
       parsed.every((item): item is string => typeof item === 'string')
     ) {
       return parsed;
-    } else {
-      console.warn('⚠️ ALLOWED_ORIGINS is not a valid array of strings');
     }
-  } catch (err) {
-    console.error('❌ Failed to parse ALLOWED_ORIGINS:', err);
+  } catch {
+    console.warn('⚠️ ALLOWED_ORIGINS invalide. Utilisation du fallback.');
   }
 
-  return ['https://nedellec-julien.fr']; // fallback
+  return fallback;
 }
 
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+type CustomOriginFunction = (
+  this: FastifyInstance,
+  origin: string | undefined,
+  req: FastifyRequest,
+  callback: (err: Error | null, allow: boolean) => void,
+) => void;
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
-  app.useGlobalFilters(new AllExceptionsFilter());
+function buildOriginFn(allowedOrigins: string[]): CustomOriginFunction {
+  return function (
+    this: FastifyInstance,
+    origin: string | undefined,
+    _req: FastifyRequest,
+    callback: (err: Error | null, allow: boolean) => void,
+  ): void {
+    if (!origin) {
+      callback(null, false);
+      return;
+    }
+
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(
+      isAllowed ? null : new Error(`CORS refusé pour l'origine : ${origin}`),
+      isAllowed,
+    );
+  };
+}
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter(),
+  );
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -40,18 +68,23 @@ async function bootstrap() {
     }),
   );
 
-  const allowedOrigins = parseAllowedOrigins();
+  const allowedOrigins = getAllowedOrigins();
 
-  app.enableCors({
-    origin: allowedOrigins,
+  const corsOptions: FastifyCorsOptions = {
+    origin: buildOriginFn(
+      allowedOrigins,
+    ) as import('@fastify/cors').AsyncOriginFunction,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Type', 'Authorization'],
-  });
+  };
 
-  console.log('✅ CORS Enabled for:', allowedOrigins);
+  await app.register(fastifyCors, corsOptions);
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Serveur lancé sur http://localhost:${port}`);
 }
+
 void bootstrap();
