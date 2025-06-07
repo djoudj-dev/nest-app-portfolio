@@ -5,23 +5,26 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import fastifyCors, {
-  type FastifyCorsOptions,
-  OriginFunction,
-} from '@fastify/cors';
+import fastifyCors from '@fastify/cors';
+import type { FastifyCorsOptions, OriginFunction } from '@fastify/cors';
 
 function getAllowedOrigins(): string[] {
+  if (process.env.NODE_ENV !== 'production') {
+    return ['http://localhost:4200'];
+  }
+
   const fallback = [
     'https://nedellec-julien.fr',
     'https://www.nedellec-julien.fr',
   ];
-  const raw = process.env.ALLOWED_ORIGINS ?? '[]';
 
   try {
+    const raw = process.env.ALLOWED_ORIGINS ?? '[]';
     const parsed: unknown = JSON.parse(raw);
+
     if (
       Array.isArray(parsed) &&
-      parsed.every((item): item is string => typeof item === 'string')
+      parsed.every((o): o is string => typeof o === 'string')
     ) {
       return parsed;
     }
@@ -33,14 +36,8 @@ function getAllowedOrigins(): string[] {
 }
 
 function buildOriginFn(allowedOrigins: string[]): OriginFunction {
-  return function (
-    origin: string | undefined,
-    callback: (err: Error | null, allow: boolean) => void,
-  ): void {
-    if (!origin) {
-      callback(null, false);
-      return;
-    }
+  return (origin, callback) => {
+    if (!origin) return callback(null, false);
 
     const isAllowed = allowedOrigins.includes(origin);
     callback(
@@ -56,6 +53,17 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter(),
   );
 
+  // ✅ Important : enregistrer le CORS **avant tout le reste**
+  const corsOptions: FastifyCorsOptions = {
+    origin: buildOriginFn(getAllowedOrigins()),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  };
+
+  await app.register(fastifyCors, corsOptions);
+
+  // ✅ Ensuite seulement : global pipes
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -63,18 +71,6 @@ async function bootstrap(): Promise<void> {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-
-  const allowedOrigins = getAllowedOrigins();
-
-  const corsOptions: FastifyCorsOptions = {
-    origin: buildOriginFn(allowedOrigins),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Content-Type', 'Authorization'],
-  };
-
-  await app.register(fastifyCors, corsOptions);
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port, '0.0.0.0');
