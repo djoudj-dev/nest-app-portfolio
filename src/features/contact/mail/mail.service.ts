@@ -23,7 +23,7 @@ export class MailService {
   private compileTemplate(templateName: string, context: any): string {
     const templatePath = path.join(
       process.cwd(),
-      'src/mail/templates',
+      'src/features/contact/mail/templates',
       `${templateName}.hbs`,
     );
     const templateSource = fs.readFileSync(templatePath, 'utf-8');
