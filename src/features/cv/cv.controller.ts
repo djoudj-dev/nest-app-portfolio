@@ -124,7 +124,7 @@ export class CvController {
     }
 
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
     const fileStream = fs.createReadStream(cvWithFile.filePath);
     fileStream.pipe(res);
