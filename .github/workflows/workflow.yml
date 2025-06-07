@@ -71,8 +71,8 @@ jobs:
         run: |
           export NODE_ENV=production
           pnpm run build
-          mkdir -p dist/src/mail/templates
-          cp -r src/mail/templates dist/src/mail/
+          mkdir -p dist/src/features/contact/mail/templates
+          cp -r src/features/contact/mail/templates dist/src/features/contact/mail/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
