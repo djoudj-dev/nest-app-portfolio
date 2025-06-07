@@ -5,11 +5,17 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import fastifyCors, { type FastifyCorsOptions } from '@fastify/cors';
-import type { FastifyRequest, FastifyInstance } from 'fastify';
+import fastifyCors, {
+  type FastifyCorsOptions,
+  OriginFunction,
+} from '@fastify/cors';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
 function getAllowedOrigins(): string[] {
-  const fallback = ['https://nedellec-julien.fr'];
+  const fallback = [
+    'https://nedellec-julien.fr',
+    'https://www.nedellec-julien.fr',
+  ];
   const raw = process.env.ALLOWED_ORIGINS ?? '[]';
 
   try {
@@ -27,18 +33,9 @@ function getAllowedOrigins(): string[] {
   return fallback;
 }
 
-type CustomOriginFunction = (
-  this: FastifyInstance,
-  origin: string | undefined,
-  req: FastifyRequest,
-  callback: (err: Error | null, allow: boolean) => void,
-) => void;
-
-function buildOriginFn(allowedOrigins: string[]): CustomOriginFunction {
+function buildOriginFn(allowedOrigins: string[]): OriginFunction {
   return function (
-    this: FastifyInstance,
     origin: string | undefined,
-    _req: FastifyRequest,
     callback: (err: Error | null, allow: boolean) => void,
   ): void {
     if (!origin) {
@@ -71,9 +68,7 @@ async function bootstrap(): Promise<void> {
   const allowedOrigins = getAllowedOrigins();
 
   const corsOptions: FastifyCorsOptions = {
-    origin: buildOriginFn(
-      allowedOrigins,
-    ) as import('@fastify/cors').AsyncOriginFunction,
+    origin: buildOriginFn(allowedOrigins),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -81,6 +76,12 @@ async function bootstrap(): Promise<void> {
   };
 
   await app.register(fastifyCors, corsOptions);
+
+  const fastify = app.getHttpAdapter().getInstance();
+
+  fastify.options('*', (req: FastifyRequest, reply: FastifyReply): void => {
+    reply.status(204).send();
+  });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port, '0.0.0.0');
