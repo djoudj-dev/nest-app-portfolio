@@ -62,7 +62,7 @@ export class CvController {
   @Post('upload-file')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', getMulterConfig()))
-  uploadFile(
+  async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
         validators: [new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 })],
@@ -70,7 +70,14 @@ export class CvController {
     )
     file: Express.Multer.File,
   ) {
+    const createCvDto: CreateCvDto = {
+      filePath: file.path,
+    };
+
+    const cv = await this.cvService.create(createCvDto);
+
     return {
+      id: cv.id,
       filename: file.filename,
       path: file.path,
       mimetype: file.mimetype,
