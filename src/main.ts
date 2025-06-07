@@ -9,7 +9,6 @@ import fastifyCors, {
   type FastifyCorsOptions,
   OriginFunction,
 } from '@fastify/cors';
-import type { FastifyRequest, FastifyReply } from 'fastify';
 
 function getAllowedOrigins(): string[] {
   const fallback = [
@@ -76,12 +75,6 @@ async function bootstrap(): Promise<void> {
   };
 
   await app.register(fastifyCors, corsOptions);
-
-  const fastify = app.getHttpAdapter().getInstance();
-
-  fastify.options('*', (req: FastifyRequest, reply: FastifyReply): void => {
-    reply.status(204).send();
-  });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port, '0.0.0.0');
