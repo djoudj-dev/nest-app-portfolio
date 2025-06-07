@@ -39,4 +39,4 @@ USER appuser
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/main"]
+CMD ["node", "dist/main"]
