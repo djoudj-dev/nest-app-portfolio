@@ -18,14 +18,9 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Enable CORS for Angular frontend
-  let allowedOrigins = ['https://nedellec-julien.fr']; // Default fallback
-  try {
-    if (process.env.ALLOWED_ORIGINS) {
-      allowedOrigins = JSON.parse(process.env.ALLOWED_ORIGINS) as string[];
-    }
-  } catch (error) {
-    console.error('Failed to parse ALLOWED_ORIGINS:', error);
-  }
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? [
+    'https://nedellec-julien.fr',
+  ];
 
   app.enableCors({
     origin: allowedOrigins,
