@@ -99,20 +99,13 @@ export class CvController {
     return this.cvService.uploadFile(id, file);
   }
 
-  /**
-   * Get the CV of the first record found with a file
-   * This endpoint serves as a direct access to the CV
-   */
   @Get()
   async getCv(@Res() res: Response) {
-    // Get the first CV with a file
     const cvWithFile = await this.cvService.findFirstWithFile();
 
     if (!cvWithFile || !cvWithFile.filePath) {
       throw new CvNotFoundException();
     }
-
-    // Check if file exists
     if (!fs.existsSync(cvWithFile.filePath)) {
       throw new CvNotFoundException();
     }
@@ -120,7 +113,6 @@ export class CvController {
     const filename = path.basename(cvWithFile.filePath);
     const fileExtension = path.extname(cvWithFile.filePath).toLowerCase();
 
-    // Set appropriate content type
     let contentType = 'application/octet-stream';
     if (fileExtension === '.pdf') {
       contentType = 'application/pdf';
@@ -131,11 +123,9 @@ export class CvController {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
 
-    // Set headers for file download
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-    // Stream the file to the response
     const fileStream = fs.createReadStream(cvWithFile.filePath);
     fileStream.pipe(res);
   }
